@@ -26,9 +26,14 @@ def medications(db: Session) -> list[MedicationOut]:
     now = datetime.now()
     result: list[MedicationOut] = []
     for med in db.scalars(select(Medication).where(Medication.patient_id == patient_id(db))).all():
-        latest = db.scalar(select(MedicationEvent).where(MedicationEvent.medication_id == med.id).order_by(MedicationEvent.timestamp.desc()))
+        events = db.scalars(select(MedicationEvent).where(
+            MedicationEvent.medication_id == med.id,
+            MedicationEvent.timestamp <= now,
+        ).order_by(MedicationEvent.timestamp.desc())).all()
         for schedule in db.scalars(select(MedicationSchedule).where(MedicationSchedule.medication_id == med.id)).all():
             is_upcoming = schedule.time_of_day == "evening" and now.hour < 20
+            matching_events = [event for event in events if (event.timestamp.hour < 15) == (schedule.time_of_day == "morning")]
+            latest = matching_events[0] if matching_events else None
             status = "upcoming" if is_upcoming else (latest.status if latest else "scheduled")
             result.append(MedicationOut(id=med.id, name=med.name, dose=med.dose, time_of_day=schedule.time_of_day, instructions=schedule.instructions, status=status, event_time=None if is_upcoming or not latest else latest.timestamp))
     return result

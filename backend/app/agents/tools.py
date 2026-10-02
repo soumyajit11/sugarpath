@@ -59,10 +59,31 @@ def _profile(db: Session, _: EmptyArgs) -> dict:
     user = db.get(User, profile.user_id)
     return {"name": user.name, "age": profile.age, "condition": profile.condition, "typical_breakfast_time": profile.typical_breakfast_time, "typical_walk_minutes": profile.typical_walk_minutes}
 
-def _glucose(db: Session, args: HoursArgs) -> list[dict]:
-    now = datetime.now(); return [item.model_dump(mode="json") for item in demo_provider(db).readings(now - timedelta(hours=args.hours), now)]
+def _raw_glucose(db: Session, args: HoursArgs):
+    now = datetime.now()
+    return demo_provider(db).readings(now - timedelta(hours=args.hours), now)
+
+def _glucose(db: Session, args: HoursArgs) -> dict:
+    readings = _raw_glucose(db, args)
+    # The API retains every five-minute reading; the model receives a compact,
+    # structured view so a local model can reason without context overload.
+    stride = max(1, len(readings) // 24)
+    representative = readings[::stride]
+    if representative[-1].timestamp != readings[-1].timestamp:
+        representative.append(readings[-1])
+    values = [item.value_mg_dl for item in readings]
+    high = max(readings, key=lambda item: item.value_mg_dl)
+    low = min(readings, key=lambda item: item.value_mg_dl)
+    return {
+        "hours": args.hours,
+        "reading_count": len(readings),
+        "average_mg_dl": round(sum(values) / len(values)),
+        "lowest": low.model_dump(mode="json"),
+        "highest": high.model_dump(mode="json"),
+        "representative_readings": [item.model_dump(mode="json") for item in representative],
+    }
 def _current_glucose(db: Session, _: EmptyArgs) -> dict:
-    return _glucose(db, HoursArgs(hours=1))[-1]
+    return _raw_glucose(db, HoursArgs(hours=1))[-1].model_dump(mode="json")
 def _meals(db: Session, args: HoursArgs) -> list[dict]:
     return [item.model_dump(mode="json") for item in list_meals(db, ceil(args.hours / 24)) if item.timestamp >= datetime.now() - timedelta(hours=args.hours)]
 def _meds(db: Session, _: EmptyArgs) -> list[dict]: return [item.model_dump(mode="json") for item in medications(db)]
@@ -71,6 +92,39 @@ def _sleep(db: Session, args: DaysArgs) -> list[dict]: return [item.model_dump(m
 def _daily(db: Session, _: EmptyArgs) -> dict:
     return {"current_glucose": _current_glucose(db, EmptyArgs()), "meals": _meals(db, HoursArgs(hours=24)), "medicine": _meds(db, EmptyArgs()), "activity": _activity(db, DaysArgs(days=1)), "sleep": _sleep(db, DaysArgs(days=1))}
 def _log_meal(db: Session, args: MealArgs): return log_meal(db, args.description, args.meal_type)
+def _meal_before_highest(db: Session, _: EmptyArgs) -> dict:
+    now = datetime.now()
+    readings = demo_provider(db).readings(now - timedelta(hours=24), now)
+    highest = max(readings, key=lambda item: item.value_mg_dl)
+    recent = list_meals(db, 1)
+    before = [meal for meal in recent if meal.timestamp <= highest.timestamp]
+    meal = max(before, key=lambda item: item.timestamp) if before else None
+    return {
+        "highest_glucose_mg_dl": highest.value_mg_dl,
+        "highest_glucose_at": highest.timestamp,
+        "meal_before_highest": meal.model_dump(mode="json") if meal else None,
+    }
+def _morning_glucose_context(db: Session, _: EmptyArgs) -> dict:
+    """Structured multi-source context for a cautious morning-rise explanation."""
+    now = datetime.now()
+    readings = _raw_glucose(db, HoursArgs(hours=24))
+    morning = [item for item in readings if 5 <= item.timestamp.hour < 12]
+    breakfast_meals = [item for item in list_meals(db, 1) if item.meal_type == "breakfast"]
+    medication = _history(db, DaysArgs(days=1))
+    recent_sleep = _sleep(db, DaysArgs(days=2))
+    recent_activity = _activity(db, DaysArgs(days=2))
+    def glucose_stats(items):
+        values = [item.value_mg_dl for item in items]
+        high = max(items, key=lambda item: item.value_mg_dl)
+        return {"average_mg_dl": round(sum(values) / len(values)), "highest_mg_dl": high.value_mg_dl, "highest_at": high.timestamp}
+    return {
+        "morning_glucose": glucose_stats(morning),
+        "prior_24h_glucose": glucose_stats(readings),
+        "breakfasts": [item.model_dump(mode="json") for item in breakfast_meals[:2]],
+        "medicine_adherence": {"taken": medication["taken"], "missed": medication["missed"]},
+        "latest_sleep": recent_sleep[0] if recent_sleep else None,
+        "latest_activity": recent_activity[0] if recent_activity else None,
+    }
 def _confirm(db: Session, args: ConfirmArgs):
     time_of_day = args.time_of_day or ("morning" if datetime.now().hour < 15 else "evening")
     return confirm_medication(db, args.medication_id, time_of_day)
@@ -86,6 +140,8 @@ REGISTRY = [
     Tool("get_sleep_history", "Get stored sleep history.", DaysArgs, "Sleep", False, _sleep),
     Tool("get_daily_summary", "Get a concise structured summary of today's stored data.", EmptyArgs, "Daily summary", False, _daily),
     Tool("get_patient_profile", "Get the fictional patient's stored profile.", EmptyArgs, "Patient profile", False, _profile),
+    Tool("get_meal_before_highest_glucose", "Deterministically find the stored meal before the highest glucose reading in the last 24 hours.", EmptyArgs, "Glucose history and Meals", False, _meal_before_highest),
+    Tool("get_morning_glucose_context", "Get glucose, meals, medicine, sleep, and activity context for a cautious explanation of a morning glucose rise.", EmptyArgs, "Glucose history, Meals, Medicine history, Sleep, and Activity", False, _morning_glucose_context),
     Tool("log_meal", "Log a meal using a local deterministic food dataset.", MealArgs, "Meals", True, _log_meal),
     Tool("confirm_medication", "Confirm that an already-prescribed medicine was taken.", ConfirmArgs, "Medicine history", True, _confirm),
 ]

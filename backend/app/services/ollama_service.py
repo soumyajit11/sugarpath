@@ -22,7 +22,7 @@ class OllamaClient:
     def chat(self, messages: list[dict], tools: list[dict]) -> dict:
         if not settings.ollama_model:
             raise OllamaUnavailable("No Ollama model is configured")
-        payload = json.dumps({"model": settings.ollama_model, "messages": messages, "tools": tools, "stream": False}).encode()
+        payload = json.dumps({"model": settings.ollama_model, "messages": messages, "tools": tools, "stream": False, "options": {"temperature": 0, "num_predict": 180}}).encode()
         request = Request(f"{settings.ollama_base_url.rstrip('/')}/api/chat", data=payload, headers={"Content-Type": "application/json"}, method="POST")
         started = perf_counter()
         try:

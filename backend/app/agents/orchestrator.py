@@ -23,6 +23,11 @@ class SugarPathAgent:
             return {"message": boundary, "sources_used": [], "status": "safe_boundary"}
         started = perf_counter(); sources: list[str] = []
         messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_message}]
+        executed_tools: set[str] = set()
+        lowered = user_message.lower()
+        required_tools = {"get_meal_before_highest_glucose"} if "highest glucose" in lowered and "eat" in lowered else set()
+        if "why" in lowered and "glucose" in lowered and ("rise" in lowered or "rising" in lowered):
+            required_tools = {"get_morning_glucose_context"}
         try:
             for iteration in range(self.max_iterations):
                 logger.info("agent_invocation iteration=%d", iteration + 1)
@@ -32,6 +37,12 @@ class SugarPathAgent:
                     content = answer.get("content")
                     if not isinstance(content, str) or not content.strip():
                         raise OllamaError("Model response contained no answer")
+                    if content.lstrip().startswith(("{\"name\"", "{\"function\"", "function_call")):
+                        raise OllamaError("Model returned a malformed tool request")
+                    missing = required_tools - executed_tools
+                    if missing:
+                        messages.append({"role": "user", "content": f"Before answering, call these required native tools: {', '.join(sorted(missing))}. Do not answer until you have their results."})
+                        continue
                     logger.info("agent_completed latency_ms=%d", (perf_counter() - started) * 1000)
                     return {"message": content.strip(), "sources_used": sources, "status": "ok"}
                 messages.append({"role": "assistant", "content": answer.get("content") or "", "tool_calls": calls})
@@ -49,6 +60,8 @@ class SugarPathAgent:
                         result = {"ok": False, "error": "The requested operation had invalid input."}
                     else:
                         result = tool.execute(db, arguments)
+                        if result["ok"]:
+                            executed_tools.add(tool.name)
                         if result["ok"] and tool.source not in sources: sources.append(tool.source)
                     messages.append({"role": "tool", "content": json.dumps(result, default=str)})
             logger.warning("agent_max_iterations_reached max=%d", self.max_iterations)
