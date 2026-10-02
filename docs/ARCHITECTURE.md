@@ -1,12 +1,14 @@
 # Sugar Path architecture
 
-## Scope of the first delivery
+## Current delivery scope: Phases 1–3
 
-Phases 1–2 establish a local, demo-only foundation: a React dashboard and
+Phases 1–3 establish a local, demo-only foundation: a React dashboard and
 health-history views read a seeded fictional patient's stored data from a
 FastAPI service. A deterministic mock CGM provider returns five-minute
-synthetic readings, and validated backend actions can record meals and
-medicine confirmations. Ollama and reminders remain later phases.
+synthetic readings, validated backend actions can record meals and medicine
+confirmations, and the Phase 3 assistant uses a local Ollama model through
+real, validated tool calls. Semantic memory, weekly reports, notifications,
+and external integrations remain later phases.
 
 ## System overview
 
@@ -25,12 +27,12 @@ future health-data mutation. SQLite is the default local database; the
 | Component | Responsibility |
 | --- | --- |
 | `frontend` | Mobile-first Sugar Path dashboard, loading/error states, and the demo-data disclaimer. |
-| `backend/app/api` | Small versioned HTTP surface. Phase 1 exposes health and dashboard summary endpoints. |
+| `backend/app/api` | Small HTTP surface for dashboard, health-data, and `POST /api/assistant/chat` endpoints. |
 | `backend/app/services` | Assembles patient-facing data rather than exposing ORM models directly; contains the mock CGM and local-food service boundaries. |
 | `backend/app/models` | Relational persistence models and timestamped health events. |
 | `backend/app/seed` | Idempotently creates Rahul Sen and at least 14 days of deterministic synthetic history. |
-| `backend/app/safety` | Reserved deterministic safety boundary; future AI never decides risk on its own. |
-| `backend/app/tools` | Reserved validated tool layer for future agent reads/writes. |
+| `backend/app/safety` | Active deterministic safety boundary for medication dose-change requests; the model never decides that risk. |
+| `backend/app/agents` | Phase 3 agent orchestrator, Ollama adapter, and validated tool registry for agent reads/writes. |
 
 ## Data design
 
@@ -61,9 +63,9 @@ fills five-minute gaps. Meal descriptions are matched to a local food table;
 the server—not a language model—calculates nutrition. Medicine confirmation
 and meal logging are Pydantic-validated API mutations.
 
-## Future agent and safety boundary
+## Phase 3 agent and safety boundary
 
-## Phase 3 agent flow
+### Phase 3 agent flow
 
 ```text
 Patient → Ask Sugar Path UI → POST /api/assistant/chat → agent orchestrator
@@ -74,17 +76,19 @@ Patient → Ask Sugar Path UI → POST /api/assistant/chat → agent orchestrato
 The Ollama client is an isolated HTTP adapter configured by `OLLAMA_BASE_URL`
 and `OLLAMA_MODEL`. The agent supplies only the system policy, user message,
 and JSON schemas for registered tools—not a database dump. It loops for at
-most `MAX_TOOL_ITERATIONS` (default 6) and returns the human-readable answer
+most `MAX_TOOL_ITERATIONS` (default 10) and returns the human-readable answer
 with source labels for the UI.
 
 The registry separates read tools (glucose, meals, medicine, activity, sleep,
-profile and daily summary) from two validated write tools: `log_meal` and
-`confirm_medication`. The model has no database session, SQL capability, or
-arbitrary mutation capability. Tool errors, unknown tool names, malformed
-arguments, unavailable Ollama, and iteration limits all resolve to simple
-patient-facing messages and structured logs rather than tracebacks.
+profile, daily summary, highest-glucose meal context, and morning glucose
+context) from two validated write tools: `log_meal` and `confirm_medication`.
+The model has no database session, SQL capability, or arbitrary mutation
+capability. Tool errors, unknown tool names, malformed arguments, unavailable
+Ollama, and iteration limits all resolve to simple patient-facing messages and
+structured logs rather than tracebacks.
 
-Safety rules stay deterministic and independent of the model. Configurable
-threshold checks will create UI alerts that direct the patient to their care
-plan or qualified clinical help, never dose changes, diagnoses, or model-made
-emergency treatment instructions.
+Safety rules stay deterministic and independent of the model. Medication or
+insulin dose-change requests are intercepted before a model call and receive a
+safe advisory directing the patient to their care plan or qualified clinical
+help. Proactive threshold alerts, persistent memory, reports, and notifications
+are not part of the current delivery.

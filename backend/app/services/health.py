@@ -24,10 +24,12 @@ def patient_id(db: Session) -> int:
 
 def medications(db: Session) -> list[MedicationOut]:
     now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     result: list[MedicationOut] = []
     for med in db.scalars(select(Medication).where(Medication.patient_id == patient_id(db))).all():
         events = db.scalars(select(MedicationEvent).where(
             MedicationEvent.medication_id == med.id,
+            MedicationEvent.timestamp >= today_start,
             MedicationEvent.timestamp <= now,
         ).order_by(MedicationEvent.timestamp.desc())).all()
         for schedule in db.scalars(select(MedicationSchedule).where(MedicationSchedule.medication_id == med.id)).all():
