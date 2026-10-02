@@ -1,0 +1,17 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      DEMO_MODE: "true"
+      DATABASE_URL: sqlite:///./data/sugar_path.db
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports: ["8000:8000"]
+    volumes: ["sugar_path_data:/app/data"]
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_URL: http://127.0.0.1:8000
+    ports: ["5173:5173"]
+    depends_on: [backend]
+volumes:
+  sugar_path_data:
