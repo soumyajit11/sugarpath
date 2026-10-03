@@ -4,7 +4,7 @@ Sugar Path is a local, demo-only diabetes companion prototype. It uses a
 fictional patient and synthetic health data; it is not medical software and
 does not provide diagnosis, emergency care, or dosing advice.
 
-## Current scope: Phases 1–3
+## Current scope: Phases 1–4
 
 The current implementation provides a FastAPI + SQLite backend that seeds
 Rahul Sen with 15 days of synthetic readings and daily events, plus a
@@ -13,6 +13,14 @@ feed, glucose graph, medicine confirmation, natural-language meal logging
 using only a local food table, activity/sleep history views, and the completed
 Phase 3 Ask Sugar Path assistant. Weekly reporting, persistent memory, and
 notifications remain later phases.
+
+## What Sugar Path remembers
+
+Phase 4 adds patient-controlled, structured long-term memory: routines, preferences, explicitly provided patient facts, and clearly labeled derived observations. Memory is a small, inspectable SQLite record—not a chat transcript. Patients can view and remove memories on the **Memory** page; each item shows its patient-friendly category, source, and update date.
+
+The assistant retrieves only relevant memories through validated tools and stores a memory only for an explicit “remember…” request. Medication instructions, diagnoses, dose changes, and treatment instructions are rejected, and the deterministic safety boundary always runs first. Normalized duplicates are prevented for the same patient and category.
+
+No vector database, embeddings, RAG, LangChain, or LangGraph is used: this small structured memory set uses deterministic category and keyword retrieval.
 
 ## Ask Sugar Path and Ollama
 
@@ -68,6 +76,7 @@ Alternatively run `docker compose up --build`.
 Run backend tests from `backend`: `python -m pytest`.
 
 The dashboard API is at `GET /api/dashboard`; service health is at `GET /health`.
+Memory is available at `GET/POST /api/memories`, `PATCH /api/memories/{memory_id}`, and `DELETE /api/memories/{memory_id}`.
 Phase 2 endpoints include `/api/glucose/latest`, `/api/glucose/history`,
 `/api/glucose/range`, `/api/medicines`, `/api/meals`, `/api/activities`, and
 `/api/sleep`. Phase 3 adds `POST /api/assistant/chat`.

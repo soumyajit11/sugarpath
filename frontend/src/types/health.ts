@@ -4,3 +4,4 @@ export type Meal = { id: number; timestamp: string; meal_type: string; descripti
 export type ActivityEvent = { timestamp: string; activity_type: string; duration_minutes: number; steps: number | null }
 export type SleepEvent = { start_time: string; end_time: string; quality: string | null; duration_minutes: number }
 export type AssistantReply = { message: string; sources_used: string[]; status: string }
+export type Memory = { id: number; memory_type: 'routine' | 'preference' | 'patient_fact' | 'system_observation'; content: string; source: 'user_explicit' | 'user_confirmed' | 'system_observation'; created_at: string; updated_at: string }

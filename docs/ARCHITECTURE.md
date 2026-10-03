@@ -1,6 +1,6 @@
 # Sugar Path architecture
 
-## Current delivery scope: Phases 1–3
+## Current delivery scope: Phases 1–4
 
 Phases 1–3 establish a local, demo-only foundation: a React dashboard and
 health-history views read a seeded fictional patient's stored data from a
@@ -9,6 +9,8 @@ synthetic readings, validated backend actions can record meals and medicine
 confirmations, and the Phase 3 assistant uses a local Ollama model through
 real, validated tool calls. Semantic memory, weekly reports, notifications,
 and external integrations remain later phases.
+
+Phase 4 implements only persistent structured memory; it does not implement reports or notifications.
 
 ## System overview
 
@@ -92,3 +94,13 @@ insulin dose-change requests are intercepted before a model call and receive a
 safe advisory directing the patient to their care plan or qualified clinical
 help. Proactive threshold alerts, persistent memory, reports, and notifications
 are not part of the current delivery.
+
+## Phase 4 structured memory
+
+`AgentMemory` persists a patient-specific record with `memory_type`, `content`, `source`, and timestamps in the existing SQLite/SQLAlchemy database. Approved categories are routines, preferences, patient facts explicitly supplied by the patient, and clearly labeled system observations. Sources are an explicit request, a confirmed request, or observed Sugar Path data.
+
+The memory service is the only standard application path that creates, updates, deletes, deduplicates, or retrieves records. Pydantic validates API and tool inputs. It normalizes duplicate content per patient/category and rejects medical instructions, diagnoses, dose changes, and treatment instructions. Complete chat transcripts are never written as memory.
+
+The agent has validated `get_agent_memories` and constrained `store_agent_memory` tools. It retrieves only relevant memories through small deterministic keyword/category filters, and stores only explicit “remember” requests. The deterministic safety policy runs before the agent and remains higher priority than memory.
+
+`GET /api/memories`, `POST /api/memories`, `PATCH /api/memories/{memory_id}`, and `DELETE /api/memories/{memory_id}` provide transparent control. The Memory page shows friendly labels, source wording, last update, and removal. No vector database, embeddings, RAG, LangChain, or LangGraph is needed for this small structured set.

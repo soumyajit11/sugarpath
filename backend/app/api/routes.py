@@ -10,6 +10,8 @@ from app.services.health import activities, confirm_medication, list_meals, log_
 from app.schemas.health import ActivityOut, ConfirmMedicationIn, GlucoseReadingOut, MealCreate, MealOut, MedicationOut, SleepOut
 from app.schemas.assistant import ChatRequest, ChatResponse
 from app.agents import SugarPathAgent
+from app.schemas.memory import MemoryCreate, MemoryOut, MemoryUpdate
+from app.services.memory import create_memory, delete_memory, list_memories, update_memory
 
 router = APIRouter(prefix="/api")
 
@@ -74,6 +76,38 @@ def activity_list(days: int = Query(default=7, ge=1, le=31), db: Session = Depen
 @router.get("/sleep", response_model=list[SleepOut])
 def sleep_list(days: int = Query(default=7, ge=1, le=31), db: Session = Depends(get_db)):
     return sleep(db, days)
+
+
+@router.get("/memories", response_model=list[MemoryOut])
+def memory_list(db: Session = Depends(get_db)):
+    return list_memories(db)
+
+
+@router.post("/memories", response_model=MemoryOut, status_code=201)
+def memory_create(payload: MemoryCreate, db: Session = Depends(get_db)):
+    try:
+        memory, _ = create_memory(db, payload)
+        return memory
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.patch("/memories/{memory_id}", response_model=MemoryOut)
+def memory_update(memory_id: int, payload: MemoryUpdate, db: Session = Depends(get_db)):
+    try:
+        return update_memory(db, memory_id, payload)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.delete("/memories/{memory_id}", status_code=204)
+def memory_delete(memory_id: int, db: Session = Depends(get_db)):
+    try:
+        delete_memory(db, memory_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/assistant/chat", response_model=ChatResponse)

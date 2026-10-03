@@ -11,6 +11,8 @@ from app.models import MedicationEvent, PatientProfile, User
 from app.schemas.health import ConfirmMedicationIn
 from app.services.cgm import demo_provider
 from app.services.health import activities, confirm_medication, list_meals, log_meal, medications, patient_id, sleep
+from app.schemas.memory import MemoryCreate
+from app.services.memory import create_memory, retrieve_memories
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +28,10 @@ class MealArgs(BaseModel):
 class ConfirmArgs(BaseModel):
     medication_id: int = Field(gt=0)
     time_of_day: str | None = Field(default=None, pattern="^(morning|evening)$")
+class MemoryReadArgs(BaseModel):
+    query: str = Field(default="", max_length=500)
+    memory_type: str | None = Field(default=None, pattern="^(routine|preference|patient_fact|system_observation)$")
+class MemoryStoreArgs(MemoryCreate): pass
 
 
 class Tool:
@@ -128,6 +134,11 @@ def _morning_glucose_context(db: Session, _: EmptyArgs) -> dict:
 def _confirm(db: Session, args: ConfirmArgs):
     time_of_day = args.time_of_day or ("morning" if datetime.now().hour < 15 else "evening")
     return confirm_medication(db, args.medication_id, time_of_day)
+def _memories(db: Session, args: MemoryReadArgs):
+    return [{"memory_type": item.memory_type, "content": item.content, "source": item.source, "updated_at": item.updated_at} for item in retrieve_memories(db, args.query, args.memory_type)]
+def _store_memory(db: Session, args: MemoryStoreArgs):
+    memory, created = create_memory(db, MemoryCreate(**args.model_dump()))
+    return {"memory_type": memory.memory_type, "content": memory.content, "source": memory.source, "created": created}
 
 
 REGISTRY = [
@@ -142,7 +153,9 @@ REGISTRY = [
     Tool("get_patient_profile", "Get the fictional patient's stored profile.", EmptyArgs, "Patient profile", False, _profile),
     Tool("get_meal_before_highest_glucose", "Deterministically find the stored meal before the highest glucose reading in the last 24 hours.", EmptyArgs, "Glucose history and Meals", False, _meal_before_highest),
     Tool("get_morning_glucose_context", "Get glucose, meals, medicine, sleep, and activity context for a cautious explanation of a morning glucose rise.", EmptyArgs, "Glucose history, Meals, Medicine history, Sleep, and Activity", False, _morning_glucose_context),
+    Tool("get_agent_memories", "Retrieve relevant, structured long-term memories only when the patient asks about preferences, routines, facts, or what Sugar Path remembers.", MemoryReadArgs, "What Sugar Path remembers", False, _memories),
     Tool("log_meal", "Log a meal using a local deterministic food dataset.", MealArgs, "Meals", True, _log_meal),
     Tool("confirm_medication", "Confirm that an already-prescribed medicine was taken.", ConfirmArgs, "Medicine history", True, _confirm),
+    Tool("store_agent_memory", "Store an explicitly requested, non-medical long-term preference, routine, or patient fact. Never store a full conversation or treatment instruction.", MemoryStoreArgs, "What Sugar Path remembers", True, _store_memory),
 ]
 TOOL_MAP = {tool.name: tool for tool in REGISTRY}

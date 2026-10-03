@@ -26,6 +26,10 @@ class SugarPathAgent:
         executed_tools: set[str] = set()
         lowered = user_message.lower()
         required_tools = {"get_meal_before_highest_glucose"} if "highest glucose" in lowered and "eat" in lowered else set()
+        if any(phrase in lowered for phrase in ("what do you remember", "remember about me", "usually", "preference")):
+            required_tools = {"get_agent_memories"}
+        if "remember" in lowered and any(phrase in lowered for phrase in ("remember that", "remember my", "please remember")):
+            required_tools = {"store_agent_memory"}
         if "why" in lowered and "glucose" in lowered and ("rise" in lowered or "rising" in lowered):
             required_tools = {"get_morning_glucose_context"}
         try:
