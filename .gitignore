@@ -3,6 +3,7 @@ backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
 backend/*.db
+*.db-journal
 backend/.pytest_cache/
 
 # Node/Vite
@@ -11,3 +12,5 @@ frontend/dist/
 
 # Local settings
 .env
+.vscode/
+.idea/

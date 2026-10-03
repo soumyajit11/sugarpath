@@ -1,6 +1,6 @@
 # Sugar Path architecture
 
-## Current delivery scope: Phases 1–6
+## Current delivery scope: Phases 1–9
 
 Phases 1–3 establish a local, demo-only foundation: a React dashboard and
 health-history views read a seeded fictional patient's stored data from a
@@ -145,3 +145,12 @@ Settings are validated during startup. This remains a single-demo-patient
 prototype: `limit(1)` profile selection is not authentication or patient data
 isolation. SQLite compatibility remains a local-development approach, not a
 production-grade migration workflow.
+
+## Release notes
+
+The repository is the source of truth for local setup, test commands, the
+demo walkthrough, and known limitations. The root README contains the concise
+system diagram and developer workflow; `docs/DEMO.md` is a repeatable
+portfolio demonstration. Docker Compose is local-development support only and
+does not include Ollama. No production deployment, scheduler, authentication,
+or multi-patient security claim is implied.
