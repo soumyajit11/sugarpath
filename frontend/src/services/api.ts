@@ -14,7 +14,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.detail ?? 'Something went wrong.') }
   return response.json()
 }
-export const getGlucose = () => request<GlucoseReading[]>('/api/glucose/history?hours=24')
+export const getGlucose = (hours = 24) => request<GlucoseReading[]>(`/api/glucose/history?hours=${hours}`)
 export const getMedicines = () => request<Medicine[]>('/api/medicines')
 export const confirmMedicine = (id: number, time: string) => request<Medicine>(`/api/medicines/${id}/confirm`, { method: 'POST', body: JSON.stringify({ time_of_day: time }) })
 export const getMeals = () => request<Meal[]>('/api/meals')

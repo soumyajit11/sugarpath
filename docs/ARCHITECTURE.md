@@ -126,3 +126,7 @@ Medicine timing uses configured local demo hours and `MEDICINE_MISSED_GRACE_MINU
 The Notification center and dashboard bell provide readable in-app updates and contextual links to medicine, glucose, or weekly-report pages. `get_notifications` lets Ask Sugar Path summarize persisted unread notifications only. The event system never asks Ollama whether an event is important, never changes medication or insulin, and never sends email, SMS, push, WhatsApp, or external messages.
 
 Validated local reminder records support medicine, activity, meal-logging, and custom categories through `POST /api/reminders`; due reminders become `reminder_due` events on the next explicit evaluation. The frontend never creates raw events or arbitrary event payloads.
+
+## Phase 7 presentation layer
+
+Phase 7 keeps the API and backend architecture unchanged while splitting the frontend shell into a reusable `components/AppShell` and page header. The shell presents five primary mobile destinations (Home, Glucose, Medicine, Ask, and More), a responsive desktop sidebar, a notification bell, and a shared token-based CSS visual system. Page components continue to use local React state and the existing API client; no global state library or UI framework was introduced.

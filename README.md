@@ -4,7 +4,7 @@ Sugar Path is a local, demo-only diabetes companion prototype. It uses a
 fictional patient and synthetic health data; it is not medical software and
 does not provide diagnosis, emergency care, or dosing advice.
 
-## Current scope: Phases 1–6
+## Current scope: Phases 1–7
 
 The current implementation provides a FastAPI + SQLite backend that seeds
 Rahul Sen with 15 days of synthetic readings and daily events, plus a
@@ -13,6 +13,10 @@ feed, glucose graph, medicine confirmation, natural-language meal logging
 using only a local food table, activity/sleep history views, and the completed
 Phase 3 Ask Sugar Path assistant, Phase 4 structured memory, and Phase 5
 on-demand weekly reports, and Phase 6 local in-app notifications.
+
+## Patient-friendly interface
+
+Phase 7 polishes the existing functionality without changing backend behavior. Sugar Path now uses a calmer token-based visual system, responsive mobile bottom navigation with a More menu, a restrained desktop sidebar, accessible focus states, larger touch targets, deliberate loading and empty states, and a patient-friendly long-wait experience for local Ask Sugar Path requests.
 
 ## Notifications and local events
 
