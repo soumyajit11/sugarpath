@@ -139,7 +139,9 @@ def _confirm(db: Session, args: ConfirmArgs):
 def _memories(db: Session, args: MemoryReadArgs):
     return [{"memory_type": item.memory_type, "content": item.content, "source": item.source, "updated_at": item.updated_at} for item in retrieve_memories(db, args.query, args.memory_type)]
 def _store_memory(db: Session, args: MemoryStoreArgs):
-    memory, created = create_memory(db, MemoryCreate(**args.model_dump()))
+    # Model-provided provenance is not authoritative. Agent writes originate
+    # from an explicit patient request checked by the orchestrator.
+    memory, created = create_memory(db, MemoryCreate(**args.model_dump(exclude={"source"}), source="user_explicit"))
     return {"memory_type": memory.memory_type, "content": memory.content, "source": memory.source, "created": created}
 def _weekly_summary(db: Session, _: EmptyArgs):
     return current_weekly_report(db).summary.model_dump(mode="json")

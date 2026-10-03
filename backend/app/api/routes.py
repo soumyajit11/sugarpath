@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -52,7 +52,7 @@ def medicine_list(db: Session = Depends(get_db)):
 
 
 @router.post("/medicines/{medication_id}/confirm", response_model=MedicationOut)
-def medicine_confirm(medication_id: int, payload: ConfirmMedicationIn, db: Session = Depends(get_db)):
+def medicine_confirm(medication_id: int = Path(gt=0), payload: ConfirmMedicationIn = ..., db: Session = Depends(get_db)):
     try:
         return confirm_medication(db, medication_id, payload.time_of_day)
     except ValueError as exc:
@@ -97,7 +97,7 @@ def memory_create(payload: MemoryCreate, db: Session = Depends(get_db)):
 
 
 @router.patch("/memories/{memory_id}", response_model=MemoryOut)
-def memory_update(memory_id: int, payload: MemoryUpdate, db: Session = Depends(get_db)):
+def memory_update(memory_id: int = Path(gt=0), payload: MemoryUpdate = ..., db: Session = Depends(get_db)):
     try:
         return update_memory(db, memory_id, payload)
     except LookupError as exc:
@@ -107,7 +107,7 @@ def memory_update(memory_id: int, payload: MemoryUpdate, db: Session = Depends(g
 
 
 @router.delete("/memories/{memory_id}", status_code=204)
-def memory_delete(memory_id: int, db: Session = Depends(get_db)):
+def memory_delete(memory_id: int = Path(gt=0), db: Session = Depends(get_db)):
     try:
         delete_memory(db, memory_id)
     except LookupError as exc:
@@ -129,7 +129,7 @@ def weekly_generate(payload: WeeklyReportRequest | None = None, db: Session = De
 
 
 @router.get("/reports/weekly/{report_id}", response_model=WeeklyReportOut)
-def weekly_get(report_id: int, db: Session = Depends(get_db)):
+def weekly_get(report_id: int = Path(gt=0), db: Session = Depends(get_db)):
     try:
         return get_weekly_report(db, report_id)
     except LookupError as exc:
@@ -152,13 +152,13 @@ def notification_list(db: Session = Depends(get_db)):
 
 
 @router.patch("/notifications/{notification_id}/read", response_model=NotificationOut)
-def notification_read(notification_id: int, db: Session = Depends(get_db)):
+def notification_read(notification_id: int = Path(gt=0), db: Session = Depends(get_db)):
     try: return set_notification_status(db, notification_id, "read")
     except LookupError as exc: raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.patch("/notifications/{notification_id}/dismiss", response_model=NotificationOut)
-def notification_dismiss(notification_id: int, db: Session = Depends(get_db)):
+def notification_dismiss(notification_id: int = Path(gt=0), db: Session = Depends(get_db)):
     try: return set_notification_status(db, notification_id, "dismissed")
     except LookupError as exc: raise HTTPException(status_code=404, detail=str(exc)) from exc
 

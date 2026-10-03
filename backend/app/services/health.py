@@ -48,8 +48,24 @@ def confirm_medication(db: Session, medication_id: int, time_of_day: str) -> Med
     schedule = db.scalar(select(MedicationSchedule).where(MedicationSchedule.medication_id == med.id, MedicationSchedule.time_of_day == time_of_day))
     if schedule is None:
         raise ValueError("Medicine schedule was not found")
-    event = MedicationEvent(medication_id=med.id, timestamp=datetime.now(), status="taken")
-    db.add(event); db.commit(); db.refresh(event)
+    now = datetime.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    existing = db.scalars(select(MedicationEvent).where(
+        MedicationEvent.medication_id == med.id,
+        MedicationEvent.timestamp >= today_start,
+        MedicationEvent.timestamp <= now,
+        MedicationEvent.status == "taken",
+    ).order_by(MedicationEvent.timestamp.desc())).all()
+    event = next((item for item in existing if (item.timestamp.hour < 15) == (time_of_day == "morning")), None)
+    if event is None:
+        event = MedicationEvent(medication_id=med.id, timestamp=now, status="taken")
+        db.add(event)
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+    db.refresh(event)
     return MedicationOut(id=med.id, name=med.name, dose=med.dose, time_of_day=time_of_day, instructions=schedule.instructions, status="taken", event_time=event.timestamp)
 
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Literal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 NotificationStatus = Literal["unread", "read", "dismissed"]
 
@@ -16,8 +16,13 @@ class EventEvaluationOut(BaseModel):
 
 class ReminderCreate(BaseModel):
     reminder_type: Literal["medicine", "activity", "meal_logging", "custom"]
-    message: str
+    message: str = Field(min_length=1, max_length=240)
     due_at: datetime
+
+    @field_validator("message")
+    @classmethod
+    def clean_message(cls, value: str) -> str:
+        return " ".join(value.split())
 
 
 class ReminderOut(BaseModel):

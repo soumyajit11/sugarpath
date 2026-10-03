@@ -41,7 +41,22 @@ def evaluate_medicine_events(db: Session, now: datetime, patient: int | None = N
             if any(event.status in {"taken", "skipped"} for event in slot_events): continue
             date_key = now.date().isoformat(); base = f"patient_{patient}:med_{med.id}:{slot}:{date_key}"
             event_type = "medicine_missed" if now >= due_at + timedelta(minutes=settings.medicine_missed_grace_minutes) else "medicine_due"
-            _, was_created = _event_once(db, patient, event_type, f"{event_type}:{base}", {"medication_id": med.id, "time_of_day": slot, "date": date_key})
+            event_key = f"{event_type}:{base}"
+            # A due dose which passes its grace period is one evolving
+            # condition, not a second notification-worthy condition.
+            prior_due = db.scalar(select(AgentEvent).where(AgentEvent.event_key == f"medicine_due:{base}"))
+            if event_type == "medicine_missed" and prior_due:
+                prior_due.event_type, prior_due.event_key = event_type, event_key
+                prior_due.payload = {"medication_id": med.id, "time_of_day": slot, "date": date_key}
+                # It may already have been delivered as a due notification on
+                # a prior evaluator run; keep that one record truthful.
+                notification = db.scalar(select(Notification).where(Notification.event_id == prior_due.id))
+                if notification:
+                    notification.category = "medicine_missed"
+                    notification.message = f"You have not logged your {slot} medicine."
+                was_created = False
+            else:
+                _, was_created = _event_once(db, patient, event_type, event_key, {"medication_id": med.id, "time_of_day": slot, "date": date_key})
             created += int(was_created)
     return created
 
@@ -82,9 +97,13 @@ def process_pending_agent_events(db: Session, now: datetime) -> int:
         try:
             payload = event.payload or {}; slot = payload.get("time_of_day", "medicine")
             messages = {"medicine_due": f"Your {slot} medicine is due.", "medicine_missed": f"You have not logged your {slot} medicine.", "weekly_report_ready": "Your Sugar Path weekly summary is ready.", "glucose_event": "Your glucose reading is outside your configured demo range.", "reminder_due": "You have a Sugar Path reminder to check."}
-            if not db.scalar(select(Notification).where(Notification.event_id == event.id)):
+            notification = db.scalar(select(Notification).where(Notification.event_id == event.id))
+            if not notification:
                 db.add(Notification(patient_id=event.patient_id, message=messages[event.event_type], category=event.event_type, event_id=event.id, status="unread")); notifications += 1
                 logger.info("notification_created category=%s", event.event_type)
+            elif notification.category != event.event_type:
+                notification.category = event.event_type
+                notification.message = messages[event.event_type]
             event.processed_at = now
         except Exception:
             logger.exception("event_processing_failed event_id=%s", event.id)

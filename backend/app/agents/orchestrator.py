@@ -66,6 +66,11 @@ class SugarPathAgent:
                         logger.warning("agent_unknown_tool tool=%s", name)
                     elif not isinstance(arguments, dict):
                         result = {"ok": False, "error": "The requested operation had invalid input."}
+                    elif tool.write and not self._write_is_explicit(tool.name, lowered):
+                        # Prompts are helpful, but a model selecting a write tool is
+                        # never itself consent to mutate a patient's records.
+                        result = {"ok": False, "error": "That record can only be changed after an explicit request."}
+                        logger.warning("agent_write_intent_rejected tool=%s", tool.name)
                     else:
                         result = tool.execute(db, arguments)
                         if result["ok"]:
@@ -82,3 +87,13 @@ class SugarPathAgent:
         except Exception:
             logger.exception("agent_failed")
             return {"message": "Sugar Path's AI assistant is temporarily unavailable.", "sources_used": [], "status": "unavailable"}
+
+    @staticmethod
+    def _write_is_explicit(tool_name: str, message: str) -> bool:
+        if tool_name == "confirm_medication":
+            return any(phrase in message for phrase in ("i took", "i have taken", "mark my", "record my medicine", "confirm my medicine"))
+        if tool_name == "log_meal":
+            return any(phrase in message for phrase in ("log my meal", "record my meal", "add my meal", "i ate ", "i had "))
+        if tool_name == "store_agent_memory":
+            return any(phrase in message for phrase in ("remember that", "remember my", "please remember"))
+        return False

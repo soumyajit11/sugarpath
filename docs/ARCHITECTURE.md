@@ -130,3 +130,18 @@ Validated local reminder records support medicine, activity, meal-logging, and c
 ## Phase 7 presentation layer
 
 Phase 7 keeps the API and backend architecture unchanged while splitting the frontend shell into a reusable `components/AppShell` and page header. The shell presents five primary mobile destinations (Home, Glucose, Medicine, Ask, and More), a responsive desktop sidebar, a notification bell, and a shared token-based CSS visual system. Page components continue to use local React state and the existing API client; no global state library or UI framework was introduced.
+
+## Phase 8 reliability boundaries
+
+The orchestrator independently requires explicit patient intent before it can
+run a write tool. Agent memory provenance is derived server-side, and the
+small deterministic medication safety matcher normalizes formatting before
+checking clear dose-change requests. Medicine confirmation is idempotent per
+demo patient, medicine, local day, and schedule slot. A due medicine event
+that later passes its grace period is promoted to a missed event in place, so
+its notification is updated rather than duplicated.
+
+Settings are validated during startup. This remains a single-demo-patient
+prototype: `limit(1)` profile selection is not authentication or patient data
+isolation. SQLite compatibility remains a local-development approach, not a
+production-grade migration workflow.

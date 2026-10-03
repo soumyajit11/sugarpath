@@ -4,7 +4,7 @@ Sugar Path is a local, demo-only diabetes companion prototype. It uses a
 fictional patient and synthetic health data; it is not medical software and
 does not provide diagnosis, emergency care, or dosing advice.
 
-## Current scope: Phases 1–7
+## Current scope: Phases 1–8
 
 The current implementation provides a FastAPI + SQLite backend that seeds
 Rahul Sen with 15 days of synthetic readings and daily events, plus a
@@ -104,3 +104,18 @@ Phase 2 endpoints include `/api/glucose/latest`, `/api/glucose/history`,
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the completed Phase 1–6
 system and its local tool-calling, safety, memory, report, and event boundaries.
+
+## Phase 8 hardening and limitations
+
+Phase 8 adds deterministic regression coverage for unsafe dose-change wording,
+malformed model tool calls, model-selected writes without patient intent,
+memory provenance, idempotent medicine confirmation, event/notification
+deduplication, and malformed mutable API requests. Configuration values are
+validated at startup. Run `cd backend; python -m pytest` and
+`cd frontend; npm run build` to verify the application.
+
+Sugar Path uses synthetic data and one seeded demo patient. It has no
+authentication, clinical validation, production migration workflow, scheduler,
+or external notification delivery. Event evaluation is manual. Local Ollama
+can be slow or unavailable; only AI chat depends on it. The single-patient
+`limit(1)` lookups are demo-only and are not multi-patient isolation.
