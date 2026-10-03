@@ -1,4 +1,5 @@
 import logging
+from sqlalchemy import inspect, text
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -16,6 +17,12 @@ app.include_router(router)
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=engine)
+    migrations = {"weekly_reports": {"structured_data": "JSON"}, "agent_events": {"event_key": "VARCHAR(255)"}, "notifications": {"category": "VARCHAR(60) DEFAULT 'general'", "event_id": "INTEGER"}}
+    with engine.begin() as connection:
+        for table, columns in migrations.items():
+            existing = {column["name"] for column in inspect(engine).get_columns(table)}
+            for name, definition in columns.items():
+                if name not in existing: connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
     if settings.demo_mode:
         with SessionLocal() as db:
             seed_demo_data(db)

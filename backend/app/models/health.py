@@ -119,6 +119,8 @@ class Notification(Timestamped, Base):
     patient_id: Mapped[int] = mapped_column(ForeignKey("patient_profiles.id"))
     message: Mapped[str] = mapped_column(Text)
     status: Mapped[str] = mapped_column(String(30), default="unread")
+    category: Mapped[str] = mapped_column(String(60), default="general")
+    event_id: Mapped[int | None] = mapped_column(ForeignKey("agent_events.id"), nullable=True, unique=True)
 
 
 class AgentEvent(Timestamped, Base):
@@ -126,8 +128,19 @@ class AgentEvent(Timestamped, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     patient_id: Mapped[int] = mapped_column(ForeignKey("patient_profiles.id"))
     event_type: Mapped[str] = mapped_column(String(60))
+    event_key: Mapped[str] = mapped_column(String(255), unique=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     processed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class Reminder(Timestamped, Base):
+    __tablename__ = "reminders"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    patient_id: Mapped[int] = mapped_column(ForeignKey("patient_profiles.id"))
+    reminder_type: Mapped[str] = mapped_column(String(30))
+    message: Mapped[str] = mapped_column(String(240))
+    due_at: Mapped[datetime] = mapped_column(DateTime)
+    status: Mapped[str] = mapped_column(String(30), default="active")
 
 
 class WeeklyReport(Timestamped, Base):
@@ -136,3 +149,4 @@ class WeeklyReport(Timestamped, Base):
     patient_id: Mapped[int] = mapped_column(ForeignKey("patient_profiles.id"))
     week_start: Mapped[datetime] = mapped_column(DateTime)
     content: Mapped[str] = mapped_column(Text)
+    structured_data: Mapped[dict | None] = mapped_column(JSON, nullable=True)

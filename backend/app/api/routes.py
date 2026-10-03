@@ -12,6 +12,10 @@ from app.schemas.assistant import ChatRequest, ChatResponse
 from app.agents import SugarPathAgent
 from app.schemas.memory import MemoryCreate, MemoryOut, MemoryUpdate
 from app.services.memory import create_memory, delete_memory, list_memories, update_memory
+from app.schemas.weekly_report import WeeklyReportOut, WeeklyReportRequest
+from app.services.weekly_report import current_weekly_report, generate_weekly_report, get_weekly_report
+from app.schemas.notifications import EventEvaluationOut, NotificationOut, ReminderCreate, ReminderOut
+from app.services.events import create_reminder, evaluate_events, evaluate_weekly_report_events, list_notifications, process_pending_agent_events, set_notification_status
 
 router = APIRouter(prefix="/api")
 
@@ -108,6 +112,55 @@ def memory_delete(memory_id: int, db: Session = Depends(get_db)):
         delete_memory(db, memory_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/reports/weekly/current", response_model=WeeklyReportOut)
+def weekly_current(db: Session = Depends(get_db)):
+    report = current_weekly_report(db)
+    evaluate_weekly_report_events(db); process_pending_agent_events(db, datetime.now()); db.commit()
+    return report
+
+
+@router.post("/reports/weekly/generate", response_model=WeeklyReportOut)
+def weekly_generate(payload: WeeklyReportRequest | None = None, db: Session = Depends(get_db)):
+    report = generate_weekly_report(db, payload.week_start if payload else None)
+    evaluate_weekly_report_events(db); process_pending_agent_events(db, datetime.now()); db.commit()
+    return report
+
+
+@router.get("/reports/weekly/{report_id}", response_model=WeeklyReportOut)
+def weekly_get(report_id: int, db: Session = Depends(get_db)):
+    try:
+        return get_weekly_report(db, report_id)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/events/evaluate", response_model=EventEvaluationOut)
+def event_evaluate(db: Session = Depends(get_db)):
+    return evaluate_events(db)
+
+
+@router.post("/reminders", response_model=ReminderOut, status_code=201)
+def reminder_create(payload: ReminderCreate, db: Session = Depends(get_db)):
+    return create_reminder(db, payload.reminder_type, payload.message, payload.due_at)
+
+
+@router.get("/notifications", response_model=list[NotificationOut])
+def notification_list(db: Session = Depends(get_db)):
+    return list_notifications(db)
+
+
+@router.patch("/notifications/{notification_id}/read", response_model=NotificationOut)
+def notification_read(notification_id: int, db: Session = Depends(get_db)):
+    try: return set_notification_status(db, notification_id, "read")
+    except LookupError as exc: raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.patch("/notifications/{notification_id}/dismiss", response_model=NotificationOut)
+def notification_dismiss(notification_id: int, db: Session = Depends(get_db)):
+    try: return set_notification_status(db, notification_id, "dismissed")
+    except LookupError as exc: raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/assistant/chat", response_model=ChatResponse)

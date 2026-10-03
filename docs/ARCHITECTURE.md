@@ -1,6 +1,6 @@
 # Sugar Path architecture
 
-## Current delivery scope: Phases 1–4
+## Current delivery scope: Phases 1–6
 
 Phases 1–3 establish a local, demo-only foundation: a React dashboard and
 health-history views read a seeded fictional patient's stored data from a
@@ -104,3 +104,25 @@ The memory service is the only standard application path that creates, updates, 
 The agent has validated `get_agent_memories` and constrained `store_agent_memory` tools. It retrieves only relevant memories through small deterministic keyword/category filters, and stores only explicit “remember” requests. The deterministic safety policy runs before the agent and remains higher priority than memory.
 
 `GET /api/memories`, `POST /api/memories`, `PATCH /api/memories/{memory_id}`, and `DELETE /api/memories/{memory_id}` provide transparent control. The Memory page shows friendly labels, source wording, last update, and removal. No vector database, embeddings, RAG, LangChain, or LangGraph is needed for this small structured set.
+
+## Phase 5 weekly analytics and reports
+
+The weekly-report service uses seven local calendar days and queries stored records directly. It deterministically derives glucose count, average, extrema/timestamps, daily and morning averages, and prototype excursion counts; medication scheduled/taken/missed/skipped totals and adherence; meal counts and carbohydrates; activity minutes/steps/days; and sleep duration/quality counts. The model is never given raw CGM readings to calculate these values.
+
+Small pattern rules are explainable and evidence-counted rather than machine-learned: a morning-versus-evening missed-medicine difference or an activity/glucose association is emitted only when its data requirements are met. Otherwise the report says that no consistent pattern was found. These are observational descriptions, never causal claims or treatment guidance. Clinician questions are deterministic discussion prompts only.
+
+`WeeklyReport.content` stores the patient-facing deterministic fallback narrative and `structured_data` stores the typed compact JSON summary. A startup-compatible SQLite migration adds the JSON column for existing prototype databases. Generating the same patient/week updates its report. `GET /api/reports/weekly/current`, `POST /api/reports/weekly/generate`, and `GET /api/reports/weekly/{report_id}` expose reports; `get_weekly_summary` gives the agent only the compact result.
+
+The React Weekly Report page is mobile-friendly, marked “Demo data only,” and includes browser print/save-as-PDF styling. Reports work without Ollama through the deterministic narrative fallback. Phase 6 adds local in-app events only; production scheduling and external delivery remain out of scope.
+
+## Phase 6 local event engine and notifications
+
+The local event engine is explicitly triggered through `POST /api/events/evaluate`; it has no production scheduler, external delivery provider, or model dependency. The evaluator accepts an injected `now` timestamp internally for deterministic tests. It evaluates finite categories only: `medicine_due`, `medicine_missed`, `weekly_report_ready`, `glucose_event`, and reserved `reminder_due`.
+
+Each event has a persisted deterministic key made from the patient, event condition, date, and related entity. Re-running evaluation finds the same key and skips it. Pending events are converted to exactly one notification through an event link, then receive `processed_at`. Notification statuses are `unread`, `read`, and `dismissed` and are controlled through the API, not the model.
+
+Medicine timing uses configured local demo hours and `MEDICINE_MISSED_GRACE_MINUTES`; a recorded taken/skipped event prevents that schedule slot from notifying. Glucose checks compare the latest stored synthetic reading with `GLUCOSE_LOW_THRESHOLD` and `GLUCOSE_HIGH_THRESHOLD`, which are explicitly prototype/demo thresholds—not clinical judgement. Weekly-report-ready events are created when a report is generated or refreshed.
+
+The Notification center and dashboard bell provide readable in-app updates and contextual links to medicine, glucose, or weekly-report pages. `get_notifications` lets Ask Sugar Path summarize persisted unread notifications only. The event system never asks Ollama whether an event is important, never changes medication or insulin, and never sends email, SMS, push, WhatsApp, or external messages.
+
+Validated local reminder records support medicine, activity, meal-logging, and custom categories through `POST /api/reminders`; due reminders become `reminder_due` events on the next explicit evaluation. The frontend never creates raw events or arbitrary event payloads.

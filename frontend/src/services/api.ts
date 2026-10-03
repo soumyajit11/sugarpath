@@ -1,5 +1,5 @@
 import type { Dashboard } from '../types/dashboard'
-import type { ActivityEvent, AssistantReply, GlucoseReading, Meal, Medicine, SleepEvent, Memory } from '../types/health'
+import type { ActivityEvent, AssistantReply, GlucoseReading, Meal, Medicine, SleepEvent, Memory, WeeklyReport, Notification } from '../types/health'
 // Keep the browser default aligned with the local backend bind address.
 // This avoids localhost resolving to IPv6 (::1) on some Windows setups.
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
@@ -24,3 +24,9 @@ export const getSleep = () => request<SleepEvent[]>('/api/sleep')
 export const askSugarPath = (message: string) => request<AssistantReply>('/api/assistant/chat', { method: 'POST', body: JSON.stringify({ message }) })
 export const getMemories = () => request<Memory[]>('/api/memories')
 export const deleteMemory = (id: number) => request<void>(`/api/memories/${id}`, { method: 'DELETE' })
+export const getCurrentWeeklyReport = () => request<WeeklyReport>('/api/reports/weekly/current')
+export const generateWeeklyReport = () => request<WeeklyReport>('/api/reports/weekly/generate', { method: 'POST', body: JSON.stringify({}) })
+export const getNotifications = () => request<Notification[]>('/api/notifications')
+export const evaluateEvents = () => request<{ events_created: number; notifications_created: number }>('/api/events/evaluate', { method: 'POST' })
+export const setNotificationRead = (id: number) => request<Notification>(`/api/notifications/${id}/read`, { method: 'PATCH' })
+export const dismissNotification = (id: number) => request<Notification>(`/api/notifications/${id}/dismiss`, { method: 'PATCH' })

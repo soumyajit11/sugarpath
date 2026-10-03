@@ -13,6 +13,8 @@ from app.services.cgm import demo_provider
 from app.services.health import activities, confirm_medication, list_meals, log_meal, medications, patient_id, sleep
 from app.schemas.memory import MemoryCreate
 from app.services.memory import create_memory, retrieve_memories
+from app.services.weekly_report import current_weekly_report
+from app.services.events import list_notifications
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +141,10 @@ def _memories(db: Session, args: MemoryReadArgs):
 def _store_memory(db: Session, args: MemoryStoreArgs):
     memory, created = create_memory(db, MemoryCreate(**args.model_dump()))
     return {"memory_type": memory.memory_type, "content": memory.content, "source": memory.source, "created": created}
+def _weekly_summary(db: Session, _: EmptyArgs):
+    return current_weekly_report(db).summary.model_dump(mode="json")
+def _notifications(db: Session, _: EmptyArgs):
+    return [{"message": item.message, "category": item.category, "status": item.status, "created_at": item.created_at} for item in list_notifications(db) if item.status == "unread"]
 
 
 REGISTRY = [
@@ -154,6 +160,8 @@ REGISTRY = [
     Tool("get_meal_before_highest_glucose", "Deterministically find the stored meal before the highest glucose reading in the last 24 hours.", EmptyArgs, "Glucose history and Meals", False, _meal_before_highest),
     Tool("get_morning_glucose_context", "Get glucose, meals, medicine, sleep, and activity context for a cautious explanation of a morning glucose rise.", EmptyArgs, "Glucose history, Meals, Medicine history, Sleep, and Activity", False, _morning_glucose_context),
     Tool("get_agent_memories", "Retrieve relevant, structured long-term memories only when the patient asks about preferences, routines, facts, or what Sugar Path remembers.", MemoryReadArgs, "What Sugar Path remembers", False, _memories),
+    Tool("get_weekly_summary", "Get a compact deterministic seven-day summary of glucose, medicine, meals, activity, sleep, and evidence-based observed patterns. Do not calculate metrics yourself.", EmptyArgs, "Weekly summary", False, _weekly_summary),
+    Tool("get_notifications", "Get the patient's unread, persisted in-app notifications. Use this for questions about anything they need to check or may have missed.", EmptyArgs, "Notifications", False, _notifications),
     Tool("log_meal", "Log a meal using a local deterministic food dataset.", MealArgs, "Meals", True, _log_meal),
     Tool("confirm_medication", "Confirm that an already-prescribed medicine was taken.", ConfirmArgs, "Medicine history", True, _confirm),
     Tool("store_agent_memory", "Store an explicitly requested, non-medical long-term preference, routine, or patient fact. Never store a full conversation or treatment instruction.", MemoryStoreArgs, "What Sugar Path remembers", True, _store_memory),

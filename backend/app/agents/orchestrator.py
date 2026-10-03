@@ -30,6 +30,10 @@ class SugarPathAgent:
             required_tools = {"get_agent_memories"}
         if "remember" in lowered and any(phrase in lowered for phrase in ("remember that", "remember my", "please remember")):
             required_tools = {"store_agent_memory"}
+        if any(phrase in lowered for phrase in ("how was my week", "weekly summary", "weekly report", "this week")):
+            required_tools = {"get_weekly_summary"}
+        if any(phrase in lowered for phrase in ("anything i need", "miss anything", "notifications", "need to check")):
+            required_tools = {"get_notifications"}
         if "why" in lowered and "glucose" in lowered and ("rise" in lowered or "rising" in lowered):
             required_tools = {"get_morning_glucose_context"}
         try:
